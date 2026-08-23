@@ -1,0 +1,56 @@
+name: Amul stock watch
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_alert:
+        description: "Send a test notification instead of checking stock"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: amul-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install requests playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run stock check
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+          TWILIO_SID:   ${{ secrets.TWILIO_SID }}
+          TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
+          TWILIO_FROM:  ${{ secrets.TWILIO_FROM }}
+          TWILIO_TO:    ${{ secrets.TWILIO_TO }}
+          TEST_ALERT:   ${{ inputs.test_alert }}
+        run: python check_amul.py
+
+      - name: Persist state
+        run: |
+          if [ -n "$(git status --porcelain state.json)" ]; then
+            git config user.name  "amul-bot"
+            git config user.email "amul-bot@users.noreply.github.com"
+            git add state.json
+            git commit -m "update stock state [skip ci]"
+            git push
+          else
+            echo "No state change to commit."
+          fi
