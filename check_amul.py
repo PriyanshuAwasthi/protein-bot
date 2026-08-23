@@ -91,6 +91,15 @@ def save_state(state: dict) -> None:
 
 
 def main() -> None:
+    # Test mode: send a message through both channels and exit, so you can
+    # verify your secrets deliver without waiting for a real restock.
+    if os.environ.get("TEST_ALERT", "").lower() in ("1", "true", "yes"):
+        msg = "✅ Test alert from your Amul stock bot — notifications are working!"
+        send_telegram(msg)
+        send_whatsapp(msg)
+        print("Test alert sent.")
+        return
+
     prev = load_state()
     was_in_stock = bool(prev.get("in_stock", False))
 
